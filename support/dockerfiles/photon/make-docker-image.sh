@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if [ "$#" -lt 2 ]; then
-	echo "Script to create new Photon Docker image."
-	echo "Usage: $0 <path to workspace> <installation type>"
+if [ "$#" -lt 1 ]; then
+	echo "Script to create new photon base docker image."
+	echo "Usage: $0 <path to workspace>"
 	exit -1
 fi
 
@@ -10,35 +10,79 @@ set -e
 set -x
 
 PROGRAM=$0
-ROOT=$1
-TYPE=$2
-IN_CONTAINER=$3
+MAIN_PACKAGE=$1
 
-ROOTFS_TAR_FILENAME=rootfs.tar.bz2
-INSTALLER_DIR=/workspace/photon/installer
-PACKAGE_BUILDER_DIR=/workspace/photon/support/package-builder
-DOCKERFILES_DIR=/workspace/photon/support/dockerfiles/photon/
 
-if [ -z "$IN_CONTAINER" ]
-then
-	rm -f $ROOTFS_TAR_FILENAME
-	docker run -it --privileged --rm -v $ROOT:/workspace toliaqat/ubuntu-dev bash /workspace/photon/support/dockerfiles/photon/${PROGRAM} $ROOT $TYPE "In Container" && \
-	[ -e "$ROOTFS_TAR_FILENAME" ] && docker build -t photon:$TYPE .
-else
-	
-	cd $INSTALLER_DIR && \
-	cp sample_config.json docker_image_config.json && \
-	sed -i -e "s/minimal/$TYPE/" docker_image_config.json && \
- 	./photonInstaller.py -f -w /mnt/photon-root docker_image_config.json && \
- 	rm docker_image_config.json
-	cd $PACKAGE_BUILDER_DIR && \
-	./umount-build-root.sh /mnt/photon-root && \
-	cd /mnt/photon-root && \
-	rm -rf tools/
-	rm -rf usr/src/
-	rm -rf boot/
-	rm -rf lib/modules/
-	tar cpjf /$ROOTFS_TAR_FILENAME . && \
-	cp /$ROOTFS_TAR_FILENAME $DOCKERFILES_DIR
-fi
+TEMP_CHROOT=$(pwd)/temp_chroot
+ROOTFS_TAR_FILENAME=photon-rootfs.tar.bz2
+STAGE_DIR=$(pwd)/stage
+
+sudo createrepo $STAGE_DIR/RPMS
+
+cat > yum.conf <<- EOF
+
+[main]
+cachedir=$(pwd)/temp_chroot/var/cache/yum
+keepcache=1
+debuglevel=2
+logfile=$(pwd)/temp_chroot/var/log/yum.log
+exactarch=1
+obsoletes=1
+
+[photon-local]
+name=VMware Photon Linux 1.0(x86_64)
+baseurl=file://$(pwd)/stage/RPMS
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY
+gpgcheck=0
+enabled=1
+skip_if_unavailable=True
+
+EOF
+
+rm -rf $TEMP_CHROOT 
+mkdir $TEMP_CHROOT
+
+# use host's yum to install in chroot
+mkdir -p $TEMP_CHROOT/var/lib/rpm
+rpm --root $TEMP_CHROOT/ --initdb
+yum -c yum.conf --disablerepo=* --enablerepo=photon-local --installroot=$TEMP_CHROOT install -y filesystem glibc
+yum -c yum.conf --disablerepo=* --enablerepo=photon-local --installroot=$TEMP_CHROOT install -y tdnf vim bash coreutils photon-release $MAIN_PACKAGE
+yum -c yum.conf --disablerepo=* --enablerepo=photon-local --installroot=$TEMP_CHROOT clean all
+
+cp /etc/resolv.conf $TEMP_CHROOT/etc/
+
+# # reinstalling inside to make sure rpmdb is created for tdnf.
+# # TODO find better solution.
+chroot $TEMP_CHROOT bash -c \
+   "tdnf install -y filesystem; \
+    tdnf install -y glibc ; \
+    tdnf install -y bash ; \
+    tdnf install -y coreutils ; \
+    tdnf install -y util-linux; \
+    tdnf install -y tdnf ; \
+    tdnf install -y findutils ; \
+    tdnf install -y vim ; \
+    tdnf install -y grep ; \
+    tdnf install -y which ; \
+    tdnf install -y photon-release;"
+
+
+cd $TEMP_CHROOT
+# cleanup anything not needed inside rootfs
+rm -rf usr/src/
+rm -rf home/*
+# rm -rf var/lib/yum/*
+rm -rf var/log/*
+
+#find var/cache/tdnf/photon/rpms -type f -name "*.rpm" -exec rm {} \;
+
+tar cpjf ../$ROOTFS_TAR_FILENAME .
+mkdir -p $STAGE_DIR
+mv ../$ROOTFS_TAR_FILENAME $STAGE_DIR/
+
+cd ..
+
+# cleanup
+rm -rf $TEMP_CHROOT
+rm yum.conf
 

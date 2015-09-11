@@ -2,12 +2,13 @@
 
 Name:           python-iniparse
 Version:        0.4
-Release:        1.0%{?dist}
+Release:        1%{?dist}
 Summary:        Python Module for Accessing and Modifying Configuration Data in INI files
 Group:          Development/Libraries
 License:        MIT
 URL:            http://code.google.com/p/iniparse/
 Source0:        http://iniparse.googlecode.com/files/iniparse-%{version}.tar.gz
+%define sha1 iniparse=2b2af8a19f3e5c212c27d7c524cd748fa0b38650
 Vendor:		VMware, Inc.
 Distribution:	Photon
 BuildRequires:	python2-devel

@@ -66,6 +66,8 @@ class SpecParser(object):
                 self.readPackageHeaders(line, self.packages[currentPkg])
             elif self.isGlobalSecurityHardening(line):
                 self.readSecurityHardening(line)
+            elif self.isChecksum(line):
+                self.readChecksum(line, self.packages[currentPkg])
             else:
                 self.specAdditionalContent+=line+"\n"
             i=i+1
@@ -178,6 +180,8 @@ class SpecParser(object):
             return True
         elif re.search('^'+'conflicts:',line,flags=re.IGNORECASE) :
             return True
+        elif re.search('^'+'url:',line,flags=re.IGNORECASE) :
+            return True
         elif re.search('^'+'source[0-9]*:',line,flags=re.IGNORECASE) :
             return True
         elif re.search('^'+'patch[0-9]*:',line,flags=re.IGNORECASE) :
@@ -192,6 +196,11 @@ class SpecParser(object):
 
     def isGlobalSecurityHardening(self,line):
         if re.search('^%global *security_hardening',line,flags=re.IGNORECASE) :
+            return True
+        return False
+
+    def isChecksum(self,line):
+        if re.search('^%define *sha1',line,flags=re.IGNORECASE) :
             return True
         return False
 
@@ -273,6 +282,9 @@ class SpecParser(object):
         if headerName == 'distribution':
             pkg.distribution=headerContent
             return True
+        if headerName == 'url':
+            pkg.URL=headerContent
+            return True
         if headerName.find('source') != -1:
             pkg.sources.append(headerContent)
             return True
@@ -310,4 +322,31 @@ class SpecParser(object):
             print "Error: Invalid security_hardening value: " + words[2]
             return False
         self.globalSecurityHardening = words[2]
+        return True;
+
+    def readChecksum(self,line,pkg):
+        strUtils = StringUtils()
+        line=pkg.decodeContents(line)
+        data = line.strip();
+        words=data.split(" ")
+        nrWords = len(words)
+        if (nrWords != 3):
+            print "Error: Unable to parse line: "+line
+            return False
+        value=words[2].split("=")
+        if (len(value) != 2):
+            print "Error: Unable to parse line: "+line
+            return False
+        matchedSources=[]
+        for source in pkg.sources:
+            sourceName=strUtils.getFileNameFromURL(source)
+            if (sourceName.startswith(value[0])):
+                matchedSources.append(sourceName)
+        if (len(matchedSources) == 0):
+            print "Error: Can not find match for sha1 "+value[0]
+            return False
+        if (len(matchedSources) > 1):
+            print "Error: Too many matches in sources: "+matchedSources+" for sha1 "+value[0]
+            return False
+        pkg.checksums[sourceName] = value[1]
         return True;

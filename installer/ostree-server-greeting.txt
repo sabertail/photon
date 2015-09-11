@@ -1,0 +1,12 @@
+[1;32mWelcome to Photon (TP2) RPM-OSTree Server[0m
+
+\r \s \v
+
+RPM-OSTree repo is created at '/srv/rpm-ostree/repo'.
+A web server is automatically started to expose this repo for RPM-OSTree Host installations.
+Point your RPM-OSTree Host to 'http://<IP of this server>/' for pulling the repo.
+The default OSTree reference of this repo is 'tp2/x86_64/minimal'.
+
+[1;31mTechnical Preview. Do not use in production.[0m
+
+

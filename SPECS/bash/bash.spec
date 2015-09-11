@@ -1,14 +1,16 @@
 Summary:	Bourne-Again SHell
 Name:		bash
 Version:	4.3
-Release:	1%{?dist}
+Release:	4%{?dist}
 License:	GPLv3
 URL:		http://www.gnu.org/software/bash/
 Group:		System Environment/Base
 Vendor:		VMware, Inc.
 Distribution: Photon
 Source0:	http://ftp.gnu.org/gnu/bash/%{name}-%{version}.tar.gz
+%define sha1 bash=45ac3c5727e7262334f4dfadecdf601b39434e84
 Patch0:		http://www.linuxfromscratch.org/patches/downloads/bash/bash-4.3-upstream_fixes-7.patch
+Patch1:		fix-save_bash_input-segfault.patch
 Provides:	/bin/sh
 Provides:	/bin/bash
 %description
@@ -24,6 +26,7 @@ These are the additional language files of bash.
 %prep
 %setup -q
 %patch0 -p1
+%patch1 -p1
 %build
 ./configure \
 	--prefix=%{_prefix} \
@@ -36,10 +39,11 @@ make %{?_smp_mflags}
 make DESTDIR=%{buildroot} install
 ln -s bash %{buildroot}/bin/sh
 install -vdm 755 %{buildroot}/etc
+install -vdm 755 %{buildroot}/etc/profile.d
+install -vdm 755 %{buildroot}/etc/skel
 
 # Create dircolors
-install -vdm 644 %{buildroot}/etc/profile.d
-cat > /etc/profile.d/dircolors.sh << "EOF"
+cat > %{buildroot}/etc/profile.d/dircolors.sh << "EOF"
 # Setup for /bin/ls and /bin/grep to support color, the alias is in /etc/bashrc.
 if [ -f "/etc/dircolors" ] ; then
         eval $(dircolors -b /etc/dircolors)
@@ -52,7 +56,7 @@ alias ls='ls --color=auto'
 alias grep='grep --color=auto'
 EOF
 
-cat > /etc/profile.d/extrapaths.sh << "EOF"
+cat > %{buildroot}/etc/profile.d/extrapaths.sh << "EOF"
 if [ -d /usr/local/lib/pkgconfig ] ; then
         pathappend /usr/local/lib/pkgconfig PKG_CONFIG_PATH
 fi
@@ -64,7 +68,7 @@ if [ -d /usr/local/sbin -a $EUID -eq 0 ]; then
 fi
 EOF
 
-cat > /etc/profile.d/readline.sh << "EOF"
+cat > %{buildroot}/etc/profile.d/readline.sh << "EOF"
 # Setup the INPUTRC environment variable.
 if [ -z "$INPUTRC" -a ! -f "$HOME/.inputrc" ] ; then
         INPUTRC=/etc/inputrc
@@ -72,7 +76,7 @@ fi
 export INPUTRC
 EOF
 
-cat > /etc/profile.d/umask.sh << "EOF"
+cat > %{buildroot}/etc/profile.d/umask.sh << "EOF"
 # By default, the umask should be set.
 if [ "$(id -gn)" = "$(id -un)" -a $EUID -gt 99 ] ; then
   umask 002
@@ -81,7 +85,7 @@ else
 fi
 EOF
 
-cat > /etc/profile.d/i18n.sh << "EOF"
+cat > %{buildroot}/etc/profile.d/i18n.sh << "EOF"
 # Begin /etc/profile.d/i18n.sh
 
 unset LANG LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES \
@@ -110,7 +114,7 @@ export LANG="${LANG:-C}"
 # End /etc/profile.d/i18n.sh
 EOF
 
-cat > /etc/bashrc << "EOF"
+cat > %{buildroot}/etc/bashrc << "EOF"
 # Begin /etc/bashrc
 # Written for Beyond Linux From Scratch
 # by James Robertson <jameswrobertson@earthlink.net>
@@ -148,7 +152,8 @@ unset RED GREEN NORMAL
 # End /etc/bashrc
 EOF
 
-cat > ~/.bash_profile << "EOF"
+
+cat > %{buildroot}/etc/skel/.bash_profile << "EOF"
 # Begin ~/.bash_profile
 # Written for Beyond Linux From Scratch
 # by James Robertson <jameswrobertson@earthlink.net>
@@ -176,7 +181,7 @@ fi
 # End ~/.bash_profile
 EOF
 
-cat > ~/.bashrc << "EOF"
+cat > %{buildroot}/etc/skel/.bashrc << "EOF"
 # Begin ~/.bashrc
 # Written for Beyond Linux From Scratch
 # by James Robertson <jameswrobertson@earthlink.net>
@@ -195,7 +200,7 @@ fi
 # End ~/.bashrc
 EOF
 
-cat > ~/.bash_logout << "EOF"
+cat > %{buildroot}/etc/skel/.bash_logout << "EOF"
 # Begin ~/.bash_logout
 # Written for Beyond Linux From Scratch
 # by James Robertson <jameswrobertson@earthlink.net>
@@ -205,14 +210,25 @@ cat > ~/.bash_logout << "EOF"
 # End ~/.bash_logout
 EOF
 
-dircolors -p > /etc/dircolors
-
+dircolors -p > %{buildroot}/etc/dircolors
 
 %find_lang %{name}
 rm -rf %{buildroot}/%{_infodir}
+
+%post
+test -e /root/.bash_profile || cp /etc/skel/.bash_profile /root
+test -e /root/.bashrc || cp /etc/skel/.bashrc /root
+test -e /root/.bash_logout || cp /etc/skel/.bash_logout /root
+
+%postun
+rm -f /root/.bashrc
+rm -f /root/.bash_profile
+rm -f /root/.bash_logout
+
 %files
 %defattr(-,root,root)
 /bin/*
+%{_sysconfdir}
 %{_defaultdocdir}/%{name}-%{version}/*
 %{_defaultdocdir}/%{name}/*
 %{_mandir}/*/*
@@ -221,6 +237,12 @@ rm -rf %{buildroot}/%{_infodir}
 %defattr(-,root,root)
 
 %changelog
+*       Wed Aug 05 2015 Kumar Kaushik <kaushikk@vmware.com> 4.3-4
+-       Adding post unstall section.
+*	Wed Jul 22 2015 Alexey Makhalov <amakhalov@vmware.com> 4.3-3
+-	Fix segfault in save_bash_input.
+*	Tue Jun 30 2015 Alexey Makhalov <amakhalov@vmware.com> 4.3-2
+-	/etc/profile.d permission fix. Pack /etc files into rpm
 *	Wed Oct 22 2014 Divya Thaluru <dthaluru@vmware.com> 4.3-1
 -	Initial version
 

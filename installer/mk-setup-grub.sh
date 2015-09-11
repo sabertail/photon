@@ -12,6 +12,32 @@
 #		The path to this empty disk is specified in the HDD variable in config.inc
 #	End
 #
+grub_efi_install()
+{
+    mkdir $BUILDROOT/boot/efi
+    #
+    # if it is a loop device then we should mount the dev mapped boot partition
+    #
+    if [[ $HDD == *"loop"* ]]
+    then
+         BOOT_PARTITION=/dev/mapper/`basename ${HDD}`p1
+    else
+         BOOT_PARTITION=${HDD}1
+    fi
+    mkfs.vfat $BOOT_PARTITION
+    mount -t vfat $BOOT_PARTITION $BUILDROOT/boot/efi
+    cp boot/unifont.pf2 /usr/share/grub/
+    grub2-efi-install --target=x86_64-efi --efi-directory=$BUILDROOT/boot/efi --bootloader-id=Boot --root-directory=$BUILDROOT --recheck --debug
+    rm $BUILDROOT/boot/efi/EFI/Boot/grubx64.efi
+    cp efi/bootx64.efi $BUILDROOT/boot/efi/EFI/Boot/bootx64.efi
+    umount $BUILDROOT/boot/efi
+}
+
+grub_mbr_install()
+{
+    $grubInstallCmd --force --boot-directory=$BUILDROOT/boot "$HDD"
+}
+
 set -o errexit		# exit if error...insurance ;)
 set -o nounset		# exit if variable not initalized
 set +h			# disable hashall
@@ -25,50 +51,83 @@ ARCH=$(uname -m)	# host architecture
 > ${LOGFILE}		#	clear/initialize logfile
 
 # Check if passing a HHD and partition
-if [ $# -eq 2 ] 
+if [ $# -eq 3 ] 
 	then
-		HDD=$1
-		PARTITION=$2
+        BOOTMODE=$1
+	HDD=$2
+	PARTITION=$3
 fi
 
 #
-#	Install grub.
+#	Install grub2.
 #
 UUID=$(blkid -s UUID -o value $PARTITION)
-grub-install --force --boot-directory=$BUILDROOT/boot "$HDD"
-cp boot/unifont.pf2 ${BUILDROOT}/boot/grub/
-mkdir -p ${BUILDROOT}/boot/grub/themes/photon
-cp boot/splash.tga ${BUILDROOT}/boot/grub/themes/photon/photon.tga
-cp boot/terminal_*.tga ${BUILDROOT}/boot/grub/themes/photon/
-cp boot/theme.txt ${BUILDROOT}/boot/grub/themes/photon/
-cat > "$BUILDROOT"/boot/grub/grub.cfg << "EOF"
-# Begin /boot/grub/grub.cfg
+
+grubInstallCmd=""
+mkdir -p $BUILDROOT/boot/grub2
+ln -sfv grub2 $BUILDROOT/boot/grub
+command -v grub-install >/dev/null 2>&1 && grubInstallCmd="grub-install" && { echo >&2 "Found grub-install"; }
+command -v grub2-install >/dev/null 2>&1 && grubInstallCmd="grub2-install" && { echo >&2 "Found grub2-install"; }
+if [ -z $grubInstallCmd ]; then
+echo "Unable to found grub install command"
+exit 1
+fi
+
+if [ "$BOOTMODE" == "bios" ]; then 
+    grub_mbr_install
+fi
+if [ "$BOOTMODE" == "efi" ]; then 
+    grub_efi_install
+fi
+
+cp boot/unifont.pf2 ${BUILDROOT}/boot/grub2/
+mkdir -p ${BUILDROOT}/boot/grub2/themes/photon
+cp boot/splash.tga ${BUILDROOT}/boot/grub2/themes/photon/photon.tga
+cp boot/terminal_*.tga ${BUILDROOT}/boot/grub2/themes/photon/
+cp boot/theme.txt ${BUILDROOT}/boot/grub2/themes/photon/
+cat > $BUILDROOT/boot/grub2/grub.cfg << EOF
+# Begin /boot/grub2/grub.cfg
+
+function set_rootpartition {
+    if [ "\$photon_initrd" ]; then
+        set rootpartition=UUID=\$photon_uuid
+    else
+        regexp -s dev '.{2}(.)' \$root
+        regexp -s part '.*(.)' \$root
+        regexp -s char '.{'\$dev'}(.)' abcdefghij
+        set rootpartition=/dev/sd\$char\$part
+    fi
+}
+
 set default=0
 set timeout=5
-set root=(hd0,2)
-loadfont /boot/grub/unifont.pf2
+set photon_uuid=$UUID
+search -n -u \$photon_uuid -s
+loadfont /boot/grub2/unifont.pf2
 
 insmod gfxterm
 insmod vbe
 insmod tga
+insmod ext2
+insmod part_gpt
 
 set gfxmode="640x480"
 gfxpayload=keep
 
 terminal_output gfxterm
 
-set theme=/boot/grub/themes/photon/theme.txt
+set theme=/boot/grub2/themes/photon/theme.txt
+load_env -f /boot/photon.cfg
+set_rootpartition
 
 menuentry "Photon" {
-	insmod ext2
-    insmod part_gpt
-	linux /boot/vmlinuz-3.19.2 init=/lib/systemd/systemd root=UUID=UUID_PLACEHOLDER loglevel=3 ro
-	initrd /boot/initrd.img-no-kmods
+    linux \$photon_linux root=\$rootpartition \$photon_cmdline
+    if [ "\$photon_initrd" ]; then
+        initrd \$photon_initrd
+    fi
 }
-# End /boot/grub/grub.cfg
+# End /boot/grub2/grub.cfg
 EOF
-
-sed -i "s/UUID_PLACEHOLDER/$UUID/" "$BUILDROOT"/boot/grub/grub.cfg > ${LOGFILE}	
 
 #Cleanup the workspace directory
 rm -rf "$BUILDROOT"/tools

@@ -8,6 +8,7 @@ Group:		Applications/System
 Vendor:		VMware, Inc.
 Distribution:	Photon
 Source0:	ftp://ftp.csx.cam.ac.uk/pub/software/programming/pcre/%{name}-%{version}.tar.gz
+%define sha1 pcre=fb537757756818133d8157ec878bc11f5a93ef4d
 BuildRequires:	bzip2-devel
 BuildRequires:	readline-devel
 Requires:       libgcc
@@ -54,6 +55,8 @@ ln -sfv ../../lib/$(readlink %{buildroot}/usr/lib/libpcre.so) %{buildroot}/usr/l
 %files devel
 %defattr(-, root, root)
 %{_bindir}/*
+%exclude %{_bindir}/pcregrep  
+%exclude %{_bindir}/pcretest
 %{_defaultdocdir}/%{name}-%{version}/*
 %{_mandir}/*/*
 %{_libdir}/*.so

@@ -14,11 +14,32 @@ This [Guide](https://dougvitale.wordpress.com/2011/12/21/deprecated-linux-networ
 #### How do I install new packages?
 #### Why is the yum command not working in a Minimal installation of Photon?
 
-tdnf is default package manager to install new packages.
+tdnf is default package manager to install new packages. Its a C implementation of DNF package manager. See [DNF documentation](https://media.readthedocs.org/pdf/dnf/latest/dnf.pdf) for detailed help on commands.
 
-Example:
+Examples:
+
+To install new package
+
 ```
 tdnf install vim
+```
+
+To check available upgrades
+
+```
+tdnf check-update
+```
+
+To upgrade package
+
+```
+tdnf upgrade vim
+```
+
+To refresh repository cache
+
+```
+tdnf makecache
 ```
 
 #### How do I build a new RPM package?
@@ -29,8 +50,8 @@ Lets assume your package name is foo with version 1.0.
 ```
 cp foo-1.0.tar.gz /workspace/photon/SOURCES
 cp foo.spec /workspace/photon/SPECS/foo/
-cd /workspace/photon/support/package-builder
-sudo python ./build_package.py -i foo
+cd /workspace/photon
+sudo make foo
 ```
 
 #### I just booted into a freshly installed Photon, why is ```docker ps``` not working?
@@ -44,8 +65,8 @@ Minimal is Micro plus Docker and Cloud-init packages.
 
 Full contains all the packages shipped with ISO.
 
-#### What packages are included in Micro/Minimal?
-See [package_list.json](../installer/package_list.json)
+#### What packages are included in Minimal?
+See [packages_minimal.json](../common/data/packages_minimal.json) for Minimal packages.
 
 #### Why is vi/vim not working in a Minimal installation of Photon?
 

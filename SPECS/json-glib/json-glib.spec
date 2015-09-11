@@ -1,10 +1,11 @@
 Summary:    	Library providing serialization and deserialization support for the JSON format
 Name:       	json-glib
 Version:    	1.0.2
-Release:    	1%{?dist}
+Release:    	3%{?dist}
 License:    	LGPLv2+
 Group:      	Development/Libraries
 Source0:    	http://ftp.gnome.org/pub/GNOME/sources/json-glib/1.0/%{name}-%{version}.tar.xz
+%define sha1 json-glib=e3bca16e0c9985a74ee95084ce86af18b31678b1
 URL:        	http://live.gnome.org/JsonGlib
 Vendor:		VMware, Inc.
 Distribution:	Photon
@@ -24,6 +25,7 @@ BuildRequires:	docbook-xsl
 BuildRequires:	libxslt
 BuildRequires:	docbook-xml
 Requires:	glib
+Provides:	pkgconfig(json-glib-1.0)
 
 %description
 JSON-GLib is a library providing serialization and deserialization
@@ -35,6 +37,7 @@ Summary:    Header files for the json-glib library
 Group:      Development/Libraries
 Requires:   %{name} = %{version}-%{release}
 Requires:   glib-devel
+Requires:  gobject-introspection-devel
 
 %description devel
 Header files for the json-glib library.
@@ -84,3 +87,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_libdir}/pkgconfig/json-glib-1.0.pc
 %{_datadir}/gir-1.0/Json-1.0.gir
 %{_libdir}/girepository-1.0/Json-1.0.typelib
+
+%changelog
+*	Mon Jul 6 2015 Alexey Makhalov <amakhalov@vmware.com> 1.0.2-3
+-	Added more requirements for devel subpackage.
+*	Fri Jun 26 2015 Alexey Makhalov <amakhalov@vmware.com> 1.0.2-2
+-	Added Provides:	pkgconfig(json-glib-1.0)

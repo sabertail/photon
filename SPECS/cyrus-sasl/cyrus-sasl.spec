@@ -1,14 +1,16 @@
 Summary:	Cyrus Simple Authentication Service Layer (SASL) library
 Name:		cyrus-sasl
 Version:	2.1.26
-Release:	1%{?dist}
+Release:	3%{?dist}
 License:	Custom
 URL:		http://cyrusimap.web.cmu.edu/
 Group:		System Environment/Security
 Vendor:		VMware, Inc.
 Distribution: 	Photon
 Source0:	ftp://ftp.cyrusimap.org/cyrus-sasl/%{name}-%{version}.tar.gz
+%define sha1 cyrus-sasl=d6669fb91434192529bd13ee95737a8a5040241c
 Source1:	http://www.linuxfromscratch.org/blfs/downloads/svn/blfs-bootscripts-20140919.tar.bz2
+%define sha1 blfs-bootscripts=762b68f79f84463a6b1dabb69e9dbdc2c43f32d8
 Patch0:		http://www.linuxfromscratch.org/patches/blfs/svn/cyrus-sasl-2.1.26-fixes-3.patch
 Requires:	openssl
 Requires:	krb5 >= 1.12
@@ -44,7 +46,6 @@ popd
     --without-authdaemond \
     --disable-macos-framework \
     --disable-sample \
-    --disable-cram \
     --disable-digest \
     --disable-otp \
     --disable-plain \
@@ -56,7 +57,7 @@ popd
     --enable-fast-install \
     --enable-krb4
 
-make %{?_smp_mflags}
+make
 %install
 [ %{buildroot} != "/"] && rm -rf %{buildroot}/*
 make DESTDIR=%{buildroot} install
@@ -92,5 +93,9 @@ rm -rf %{buildroot}/*
 %{_mandir}/man3/*
 %{_datadir}/licenses/%{name}/LICENSE
 %changelog
+*	Tue Sep 01 2015 Vinay Kulkarni <kulkarniv@vmware.com> 2.1.26-3
+-	Enable CRAM.
+*	Thu Jul 16 2015 Divya Thaluru <dthaluru@vmware.com> 2.1.26-2
+-	Disabling parallel threads in make
 *	Wed Nov 5 2014 Divya Thaluru <dthaluru@vmware.com> 2.1.26-1
 -	Initial build.	First version

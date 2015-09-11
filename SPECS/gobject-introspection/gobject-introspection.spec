@@ -3,11 +3,12 @@
 Name:       	gobject-introspection
 Summary:    	Introspection system for GObject-based libraries
 Version:    	1.43.3
-Release:    	1%{?dist}
+Release:    	2%{?dist}
 Group:      	Development/Libraries
 License:    	GPLv2+, LGPLv2+, MIT
 URL:        	http://live.gnome.org/GObjectIntrospection
 Source0:    	%{name}-%{version}.tar.xz
+%define sha1 gobject-introspection=eb4db77dfb7bf26e25dbfc8d03eb38be7adfb7cc
 Vendor:		VMware, Inc.
 Distribution:	Photon
 BuildRequires:  gettext
@@ -42,6 +43,8 @@ Group:      Development/Libraries
 Requires:   gobject-introspection
 Requires:   glib-devel
 Requires:   python2
+Requires:   python2-devel
+Requires:   python2-libs
 
 %description devel
 Libraries and headers for gobject-introspection.
@@ -90,3 +93,7 @@ rm -rf $RPM_BUILD_ROOT/%{_datarootdir}/gtk-doc/html
 %{_datadir}/aclocal/introspection.m4
 %{_datadir}/gobject-introspection-1.0
 %doc %{_mandir}/man1/*.gz
+
+%changelog
+*	Mon Jul 6 2015 Alexey Makhalov <amakhalov@vmware.com> 1.43.3-2
+-	Added more requirements for devel subpackage.

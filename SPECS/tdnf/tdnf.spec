@@ -1,13 +1,9 @@
 #
 # tdnf spec file
 #
-
-#dont terminate build for unpackaged files.
-%define _unpackaged_files_terminate_build 0
-
 Summary:	dnf/yum equivalent using C libs
 Name:		tdnf
-Version:	1.0
+Version:	1.0.2
 Release:	1%{?dist}
 Vendor:		VMware, Inc.
 Distribution:	Photon
@@ -23,6 +19,7 @@ BuildRequires:	openssl-devel
 
 BuildRequires:	librepo-devel
 Source0:	%{name}-%{version}.tar.gz
+%define sha1 tdnf=c17584cd75598ca951bb95099e3f76a975003b25
 
 %description
 tdnf is a yum/dnf equivalent
@@ -37,17 +34,14 @@ Requires:	tdnf = %{version}-%{release}
 Development files for tdnf
 
 %prep
-rm -rf $RPM_BUILD_DIR/tdnf
-zcat $RPM_SOURCE_DIR/%{name}-%{version}.tar.gz | tar -xvf -
+%setup -q
 
 %build
-cd $RPM_BUILD_DIR/tdnf
+autoreconf -i
 ./configure --prefix=%{_prefix} --bindir=%{_bindir} --libdir=%{_libdir} --sysconfdir=/etc
-make clean
-make
+make %{?_smp_mflags}
 
 %install
-cd $RPM_BUILD_DIR/tdnf
 make DESTDIR=%{buildroot} install
 mkdir -p %{buildroot}/var/cache/tdnf
 
@@ -93,8 +87,15 @@ mkdir -p %{buildroot}/var/cache/tdnf
     %defattr(-,root,root)
     %{_includedir}/*
     %{_libdir}/*
+    %exclude %{_libdir}/debug
 
 %changelog
+*       Thu Jul 23 2015 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.2
+-       Support reinstalls in transaction. Handle non-existent packages correctly.
+*       Mon Jul 13 2015 Alexey Makhalov <amakhalov@vmware.com> 1.0.1-2
+-       Create -debuginfo package. Use parallel make.
+*       Tue Jun 30 2015 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0.1
+-       Proxy support, keepcache fix, valgrind leaks fix
 *       Fri Jan 23 2015 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.0
 -       Initial build.  First version
 

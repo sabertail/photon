@@ -2,17 +2,21 @@
 Summary:	OpenLdap-2.4.40
 Name:		openldap
 Version:	2.4.40
-Release:	1%{?dist}
+Release:	2%{?dist}
 License:	OpenLDAP
 URL:		http://cyrusimap.web.cmu.edu/
 Group:		System Environment/Security
 Vendor:		VMware, Inc.
 Distribution:	Photon
 Source0:	ftp://ftp.openldap.org/pub/OpenLDAP/openldap-release/openldap-2.4.40.tgz
+%define sha1 openldap=0cfac3b024b99de2e2456cc7254481b6644e0b96
 Source1:	http://www.linuxfromscratch.org/blfs/downloads/svn/blfs-bootscripts-20140919.tar.bz2
+%define sha1 blfs-bootscripts=762b68f79f84463a6b1dabb69e9dbdc2c43f32d8
 Patch0:		openldap-2.4.40-blfs_paths-1.patch
 Patch1:		openldap-2.4.40-symbol_versions-1.patch
 Patch2:		openldap-2.4.40-gssapi-1.patch
+Patch3:		cve-2015-1545.patch
+Patch4:		cve-2015-1546.patch
 Requires:       openssl >= 1.0.1, cyrus-sasl >= 2.1
 BuildRequires:  cyrus-sasl >= 2.1
 BuildRequires:  openssl-devel >= 1.0.1
@@ -29,7 +33,9 @@ libraries, and documentation for OpenLDAP.
 %setup -q
 %patch2 -p1
 %patch1 -p1
-%patch0 -p1 
+%patch0 -p1
+%patch3 -p1
+%patch4 -p1
 tar xf %{SOURCE1}
 %build
 
@@ -73,5 +79,7 @@ rm -rf %{buildroot}/*
 /etc/openldap/*
 
 %changelog
+*	Fri Aug 14 2015 Vinay Kulkarni <kulkarniv@vmware.com> 2.4.40-2
+-	Patches for CVE-2015-1545 and CVE-2015-1546.
 *	Wed Oct 08 2014 Divya Thaluru <dthaluru@vmware.com> 2.4.40-1
 -	Initial build.	First version

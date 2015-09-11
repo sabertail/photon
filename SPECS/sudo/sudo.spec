@@ -1,13 +1,14 @@
 Summary:	Sudo
 Name:		sudo
 Version:	1.8.11p1
-Release:	3%{?dist}
+Release:	4%{?dist}
 License:	ISC
 URL:		https://www.kernel.org/pub/linux/libs/pam/
 Group:		System Environment/Security
 Vendor:		VMware, Inc.
 Distribution:	Photon
 Source0:	http://www.sudo.ws/sudo/dist/%{name}-%{version}.tar.gz
+%define sha1 sudo=3c442d59c0e112d4a43ffba434580e93fe1a766f
 BuildRequires:	man-db
 BuildRequires:	Linux-PAM
 Requires:	Linux-PAM
@@ -62,7 +63,9 @@ groupadd wheel
 rm -rf %{buildroot}/*
 %files -f %{name}.lang
 %defattr(-,root,root)
-%{_sysconfdir}/*
+%attr(0440,root,root) %config(noreplace) %{_sysconfdir}/sudoers
+%attr(0750,root,root) %dir %{_sysconfdir}/sudoers.d/
+%config(noreplace) %{_sysconfdir}/pam.d/sudo
 %{_bindir}/*
 %{_includedir}/*
 %{_libdir}/sudo/*.so
@@ -73,6 +76,8 @@ rm -rf %{buildroot}/*
 %{_docdir}/%{name}-%{version}/*
 %{_datarootdir}/locale/*
 %changelog
+*	Mon Jun 22 2015 Divya Thaluru <dthaluru@vmware.com> 1.8.11p1-4
+-	Fixing permissions on /etc/sudoers file
 *	Fri May 29 2015 Divya Thaluru <dthaluru@vmware.com> 1.8.11p1-3
 -	Adding sudo configuration and PAM config file
 *	Wed May 27 2015 Divya Thaluru <dthaluru@vmware.com> 1.8.11p1-2

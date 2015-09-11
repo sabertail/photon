@@ -3,14 +3,36 @@
 photon/
 ├── Makefile
 ├── README
-├── SPECS # RPM SPEC files
-├── cloud-init.md
-├── gce.md
-├── installer # Installer used at runtime
-└── support
+├── Dockerfile
+├── Vagrantfile
+├── SPECS        # RPM SPEC files
+├── common       # Build, Packaging config
+├── docs         # Documentation
+├── installer    # Installer used at runtime
+├── support      # Build scripts
+└── tools
 ```
 
 ## How to build the ISO?
+
+Pre-requisites :
+
+ * Build O/S : Ubuntu 14.04 (or later) 64 bit
+ * Packages: bison, gawk, g++, createrepo, python-aptdaemon, genisoimage, texinfo, python-requests
+```
+sudo apt-get -y install bison gawk g++ createrepo python-aptdaemon genisoimage texinfo python-requests
+```
+ * Docker:
+```
+wget -qO- https://get.docker.com/ | sh
+```
+
+Make sure `/bin/sh` is a symbolic link pointing to `/bin/bash`
+
+If `/bin/sh` is pointing `/bin/dash`, execute the following:
+```
+sudo ln -sf /bin/bash /bin/sh
+```
 
 Assuming you checked out the workspace under `$HOME/workspaces/photon`.
 ```
@@ -42,34 +64,6 @@ photon-sources/
 ├──src1.tar.gz
 ├──src2.tar.gz
 └──...
-```
-## How to build the toolchain?
-
-1. Check toolchain pre-requisites
-```
-$HOME/workspaces/photon/support/toolchain/version-check.sh
-```
-2. Make toolchain
-```
-$HOME/workspaces/photon
-sudo make toolchain
-```
-
-Pre-requisites :
-
- * Build O/S : Ubuntu 14.04 (or later) 64 bit
- * Packages: bison, gawk, g++, createrepo, python-aptdaemon, genisoimage, texinfo, python-requests
-```
-sudo apt-get -y install bison gawk g++ createrepo python-aptdaemon genisoimage texinfo python-requests
-```
-
-### Settings:
-
-Make sure `/bin/sh` is a symbolic link pointing to `/bin/bash`
-
-If `/bin/sh` is pointing `/bin/dash`, execute the following:
-```
-sudo ln -sf /bin/bash /bin/sh
 ```
 
 ## Where are the build logs?

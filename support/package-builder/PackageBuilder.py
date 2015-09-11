@@ -6,7 +6,6 @@ from CommandUtils import CommandUtils
 import os.path
 from constants import constants
 import shutil
-from time import sleep
 
 class PackageBuilder(object):
     
@@ -21,8 +20,6 @@ class PackageBuilder(object):
         self.mapPackageToCycles = mapPackageToCycles
         self.listAvailableCyclicPackages = listAvailableCyclicPackages
         self.listNodepsPackages = ["glibc","gmp","zlib","file","binutils","mpfr","mpc","gcc","ncurses","util-linux","groff","perl","texinfo","rpm","openssl","go"]
-        self.runInChrootCommand="./run-in-chroot.sh"
-        self.adjustGCCSpecScript="adjust-gcc-specs.sh"
         
     def prepareBuildRoot(self,chrootName,isToolChainPackage=False):
         chrootID=None
@@ -33,10 +30,10 @@ class PackageBuilder(object):
             if not returnVal:
                 raise Exception("Unable to prepare build root")
             tUtils=ToolChainUtils(self.logName,self.logPath)
-            if isToolChainPackage:
-                tUtils.installCoreToolChainPackages(chrootID)
-            else:
-                tUtils.installToolChain(chrootID)
+#            if isToolChainPackage:
+#                tUtils.installCoreToolChainPackages(chrootID)
+#            else:
+            tUtils.installToolChain(chrootID)
         except Exception as e:
             if chrootID is not None:
                 self.logger.debug("Deleting chroot: " + chrootID)
@@ -95,18 +92,22 @@ class PackageBuilder(object):
             self.logger.info(listInstalledPackages)
             listDependentPackages=self.findBuildTimeRequiredPackages(package)
             
+            pkgUtils = PackageUtils(self.logName,self.logPath)
             if len(listDependentPackages) != 0:
                 self.logger.info("Installing the build time dependent packages......")
                 for pkg in listDependentPackages:
-                    self.installPackage(pkg,chrootID,destLogPath,listInstalledPackages)
+                    self.installPackage(pkgUtils, pkg,chrootID,destLogPath,listInstalledPackages)
+                pkgUtils.installRPMSInAOneShot(chrootID,destLogPath)
                 self.logger.info("Finished installing the build time dependent packages......")
-            self.adjustGCCSpecs(package, chrootID, destLogPath)
-            pkgUtils = PackageUtils(self.logName,self.logPath)
+            pkgUtils.adjustGCCSpecs(package, chrootID, destLogPath)
             pkgUtils.buildRPMSForGivenPackage(package,chrootID,destLogPath)
             self.logger.info("Successfully built the package:"+package)
         except Exception as e:
             self.logger.error("Failed while building package:" + package)
             self.logger.debug("Chroot with ID: " + chrootID + " not deleted for debugging.")
+            logFileName = os.path.join(destLogPath, package + ".log")
+            fileLog = os.popen('tail -n 20 ' + logFileName).read()
+            self.logger.debug(fileLog)
             raise e
         if chrootID is not None:
             chrUtils.destroyChroot(chrootID)
@@ -120,11 +121,10 @@ class PackageBuilder(object):
         listRequiredPackages=constants.specData.getBuildRequiresForPackage(package)
         return listRequiredPackages
     
-    def installPackage(self,package,chrootID,destLogPath,listInstalledPackages):
+    def installPackage(self,pkgUtils,package,chrootID,destLogPath,listInstalledPackages):
         if package in listInstalledPackages:
             return
-        self.installDependentRunTimePackages(package,chrootID,destLogPath,listInstalledPackages)
-        pkgUtils = PackageUtils(self.logName,self.logPath)
+        self.installDependentRunTimePackages(pkgUtils,package,chrootID,destLogPath,listInstalledPackages)
         noDeps=False
         if self.mapPackageToCycles.has_key(package):
             noDeps = True
@@ -134,9 +134,8 @@ class PackageBuilder(object):
             noDeps=True
         pkgUtils.installRPM(package,chrootID,noDeps,destLogPath)
         listInstalledPackages.append(package)
-        self.logger.info("Installed the package:"+package)
 
-    def installDependentRunTimePackages(self,package,chrootID,destLogPath,listInstalledPackages):
+    def installDependentRunTimePackages(self,pkgUtils,package,chrootID,destLogPath,listInstalledPackages):
         listRunTimeDependentPackages=self.findRunTimeRequiredRPMPackages(package)
         if len(listRunTimeDependentPackages) != 0:
             for pkg in listRunTimeDependentPackages:
@@ -144,25 +143,4 @@ class PackageBuilder(object):
                     continue
                 if pkg in listInstalledPackages:
                     continue
-                self.installPackage(pkg,chrootID,destLogPath,listInstalledPackages)
-
-    def adjustGCCSpecs(self, package, chrootID, logPath):
-        opt = " " + constants.specData.getSecurityHardeningOption(package)
-        shutil.copy2(self.adjustGCCSpecScript,  chrootID+"/tmp/"+self.adjustGCCSpecScript)
-        cmdUtils=CommandUtils()
-        cmd = "/tmp/"+self.adjustGCCSpecScript+opt
-        logFile = logPath+"/adjustGCCSpecScript.log"
-        chrootCmd=self.runInChrootCommand+" "+chrootID
-        retryCount=10
-        returnVal=False
-        while retryCount > 0:
-            returnVal = cmdUtils.runCommandInShell(cmd, logFile, chrootCmd)
-            if returnVal:
-                return
-            self.logger.error("Failed while adjusting gcc specs")
-            self.logger.error("Retrying again .....")
-            retryCount = retryCount - 1
-            sleep(5)
-        if not returnVal:
-            self.logger.error("Failed while adjusting gcc specs")
-            raise "Failed while adjusting gcc specs"
+                self.installPackage(pkgUtils,pkg,chrootID,destLogPath,listInstalledPackages)

@@ -8,10 +8,12 @@ Group:		System Environment/Security
 Vendor:		VMware, Inc.
 Distribution: Photon
 Source0:	http://cache.ruby-lang.org/pub/ruby/2.2/%{name}-%{version}.tar.gz
-Requires:	ca-certificates
-BuildRequires:	ca-certificates
-Requires:	openssl
+%define sha1 ruby=12376b79163e02bc9bd1a39329d67c3d19ccace9
 BuildRequires:	openssl-devel
+BuildRequires:	ca-certificates
+Requires:	ca-certificates
+Requires:	openssl
+Requires:	gmp
 %description
 The Ruby package contains the Ruby development environment.
 This is useful for object-oriented scripting.

@@ -1,7 +1,7 @@
 Summary:	Default file system
 Name:		filesystem
 Version:	7.5
-Release:	4%{?dist}
+Release:	8%{?dist}
 License:	GPLv3
 Group:		System Environment/Base
 Vendor:		VMware, Inc.
@@ -29,7 +29,7 @@ install -vdm 755 %{buildroot}/usr/{,local/}share/{color,dict,doc,info,locale,man
 install -vdm 755 %{buildroot}/usr/{,local/}share/{misc,terminfo,zoneinfo}
 install -vdm 755 %{buildroot}/usr/libexec
 install -vdm 755 %{buildroot}/usr/{,local/}share/man/man{1..8}
-install -vdm 644 %{buildroot}/etc/profile.d
+install -vdm 755 %{buildroot}/etc/profile.d
 
 ln -svfn usr/lib %{buildroot}/lib
 ln -svfn usr/bin %{buildroot}/bin
@@ -48,7 +48,8 @@ ln -svfn var/srv %{buildroot}/srv
 ln -svfn ../run %{buildroot}/var/run
 ln -svfn ../run/lock %{buildroot}/var/lock
 install -vdm 755 %{buildroot}/var/{opt,cache,lib/{color,misc,locate},local}
-
+install -vdm 755 %{buildroot}/mnt/cdrom
+install -vdm 755 %{buildroot}/mnt/hgfs
 ln -svfn var/opt %{buildroot}/opt
 
 #
@@ -98,6 +99,7 @@ systemd-journal:x:23:
 input:x:24:
 mail:x:34:
 lock:x:54:
+dip:x:30:
 systemd-bus-proxy:x:72:
 systemd-journal-gateway:x:73:
 systemd-journal-remote:x:74:
@@ -107,6 +109,8 @@ systemd-resolve:x:77:
 systemd-timesync:x:78:
 nogroup:x:99:
 users:x:100:audio
+sudo:x:27:
+wheel:x:28:
 EOF
 #
 #	7.2.2. Creating Network Interface Configuration Files"
@@ -295,7 +299,7 @@ cat > %{buildroot}/etc/fstab <<- "EOF"
 #	hdparm -I /dev/sda | grep NCQ --> can use barrier
 #system		mnt-pt		type		options			dump fsck
 /dev/sda1	/		    ext4	    defaults,barrier,noatime,noacl,data=ordered 1 1
-# /dev/cdrom      /media/cdrom      iso9660     ro              0   0
+/dev/cdrom      /mnt/cdrom      iso9660     ro,noauto              0   0
 # /dev/sda2	swap		swap		pri=1			0 0
 #	mount points
 #	End /etc/fstab
@@ -315,17 +319,17 @@ EOF
 #
 #		chapter 9.1. The End
 #
-echo "VMware Photon Linux 1.0 TP1" > %{buildroot}/etc/photon-release
+echo "VMware Photon Linux 1.0 TP2" > %{buildroot}/etc/photon-release
 cat > %{buildroot}/etc/lsb-release <<- "EOF"
-DISTRIB_ID=VMware Photon
-DISTRIB_RELEASE=1.0 TP1
+DISTRIB_ID="VMware Photon"
+DISTRIB_RELEASE="1.0 TP2"
 DISTRIB_CODENAME=Photon
-DISTRIB_DESCRIPTION=VMware Photon 1.0 TP1
+DISTRIB_DESCRIPTION="VMware Photon 1.0 TP2"
 EOF
 
 cat > %{buildroot}/usr/lib/os-release <<- "EOF"
 NAME=VMware Photon
-VERSION="1.0 TP1"
+VERSION="1.0 TP2"
 ID=photon
 VERSION_ID=1.0
 PRETTY_NAME="VMware Photon/Linux"
@@ -386,6 +390,8 @@ ln -sv ../usr/lib/os-release %{buildroot}/etc/os-release
 #	run filesystem
 %dir /run/lock
 #	usr filesystem
+%dir /mnt/cdrom
+%dir /mnt/hgfs
 %dir /usr/bin
 %dir /usr/include
 %dir /usr/lib
@@ -460,6 +466,14 @@ ln -sv ../usr/lib/os-release %{buildroot}/etc/os-release
 /usr/local/lib64
 %endif
 %changelog
+*   Fri Aug 14 2015 Sharath George <sharathg@vmware.com> 7.5-8
+-   upgrading release to TP2
+*   Tue Jun 30 2015 Alexey Makhalov <amakhalov@vmware.com> 7.5-7
+-   /etc/profile.d permission fix
+*   Tue Jun 23 2015 Divya Thaluru <dthaluru@vmware.com> 7.5-6
+-   Adding group dip
+*   Mon Jun 22 2015 Divya Thaluru <dthaluru@vmware.com> 7.5-5
+-   Fixing lsb-release file
 *   Tue Jun 16 2015 Alexey Makhalov <amakhalov@vmware.com> 7.5-4
 -   Change users group id to 100.
 -   Add audio group to users group.
@@ -467,5 +481,5 @@ ln -sv ../usr/lib/os-release %{buildroot}/etc/os-release
 -   Change the network match for dhcp.
 *   Mon May 18 2015 Touseef Liaqat <tliaqat@vmware.com> 7.5-2
 -   Update according to UsrMove.
-*	Wed Nov 5 2014 Divya Thaluru <dthaluru@vmware.com> 7.5-1
--	Initial build. First version
+*   Wed Nov 5 2014 Divya Thaluru <dthaluru@vmware.com> 7.5-1
+-   Initial build. First version

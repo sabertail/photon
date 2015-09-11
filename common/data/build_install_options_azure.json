@@ -1,0 +1,14 @@
+{
+    "minimal" : {
+        "title" : "Photon Minimal",
+        "file" : "packages_minimal.json",
+        "visible" : true,
+        "include" : []
+    },
+    "azure" : {
+        "title" : "Photon Azure packages",
+        "file" : "packages_azure.json",
+        "visible" : false,
+        "include" : ["minimal"]
+    }
+}

@@ -7,7 +7,6 @@ from PackageUtils import PackageUtils
 from ToolChainUtils import ToolChainUtils
 from Scheduler import Scheduler
 from ThreadPool import ThreadPool
-import subprocess
 
 class PackageManager(object):
     
@@ -27,7 +26,6 @@ class PackageManager(object):
         self.mapOutputThread={}
         self.mapThreadsLaunchTime={}
         self.listAvailableCyclicPackages=[]
-        self.listPackagesToBuild=[]
         
     def readPackageBuildData(self, listPackages):
         try:
@@ -54,8 +52,14 @@ class PackageManager(object):
                     listDirectorys.append(dirEntryPath)
         pkgUtils = PackageUtils(self.logName,self.logPath)
         for rpmfile in listRPMFiles:
-            package = pkgUtils.findPackageNameFromRPMFile(rpmfile)
-            listAvailablePackages.append(package)
+            package,version,release = pkgUtils.findPackageInfoFromRPMFile(rpmfile)
+            if constants.specData.isRPMPackage(package):
+                specVersion=constants.specData.getVersion(package)
+                specRelease=constants.specData.getRelease(package)
+                if version == specVersion and release == specRelease:
+                    listAvailablePackages.append(package)
+        self.logger.info("List of Already built packages")
+        self.logger.info(listAvailablePackages)
         return listAvailablePackages
     
     def calculateParams(self,listPackages):
@@ -66,21 +70,16 @@ class PackageManager(object):
         self.mapCyclesToPackageList.clear()
         self.mapPackageToCycle.clear()
         self.sortedPackageList=[]
-        self.listPackagesToBuild=[]
-        
-        if not self.readPackageBuildData(listPackages):
-            return False
         
         self.listOfPackagesAlreadyBuilt = self.readAlreadyAvailablePackages()
         
-        self.listPackagesToBuild=self.sortedPackageList[:]
-        for pkg in self.sortedPackageList:
+        listPackagesToBuild=listPackages[:]
+        for pkg in listPackages:
             if pkg in self.listOfPackagesAlreadyBuilt:
-                self.listPackagesToBuild.remove(pkg)
+                listPackagesToBuild.remove(pkg)
         
-        self.logger.info(self.listPackagesToBuild)
-        self.logger.info(listPackages)
-        
+        if not self.readPackageBuildData(listPackagesToBuild):
+            return False
         return True
     
     def buildToolChain(self):
@@ -90,32 +89,15 @@ class PackageManager(object):
         except Exception as e:
             self.logger.error("Unable to build tool chain")
             self.logger.error(e)
-            return False
-        
-        return True
+            raise e
     
-    def calculatePossibleNumWorkerThreads(self):
-        process = subprocess.Popen(["df" ,constants.buildRootPath],shell=True,stdout=subprocess.PIPE)
-        retval = process.wait()
-        if retval != 0:
-            self.logger.error("Unable to check free space. Unknown error.")
-            return False
-        output = process.communicate()[0]
-        device, size, used, available, percent, mountpoint = output.split("\n")[1].split()
-        c =  int(available)/600000
-        numChroots=int(c)
-        self.logger.info("Possible number of worker threads:"+str(numChroots))
-        return numChroots
-    
-    def buildToolChainPackages(self):
-        if not self.buildToolChain():
-            return False
-        return self.buildGivenPackages(constants.listToolChainPackages)
+    def buildToolChainPackages(self, buildThreads):
+        self.buildToolChain()
+        self.buildGivenPackages(constants.listToolChainPackages, buildThreads)
         
-    def buildPackages(self,listPackages):
-        if not self.buildToolChainPackages():
-            return False
-        return self.buildGivenPackages(listPackages)
+    def buildPackages(self,listPackages, buildThreads):
+        self.buildToolChainPackages(buildThreads)
+        self.buildGivenPackages(listPackages, buildThreads)
     
     def initializeThreadPool(self,statusEvent):
         ThreadPool.clear()
@@ -130,24 +112,18 @@ class PackageManager(object):
         Scheduler.setEvent(statusEvent)
         Scheduler.stopScheduling=False
     
-    def buildGivenPackages (self, listPackages):
+    def buildGivenPackages (self, listPackages, buildThreads):
         returnVal=self.calculateParams(listPackages)
         if not returnVal:
             self.logger.error("Unable to set paramaters. Terminating the package manager.")
-            return False
+            raise Exception("Unable to set paramaters")
         
         statusEvent=threading.Event()
-        numWorkerThreads=self.calculatePossibleNumWorkerThreads()
-        if numWorkerThreads > 8:
-            numWorkerThreads = 8
-        if numWorkerThreads == 0:
-            return False
-         
         self.initializeScheduler(statusEvent)
         self.initializeThreadPool(statusEvent)
         
         i=0
-        while i < numWorkerThreads:
+        while i < buildThreads:
             workerName="WorkerThread"+str(i)
             ThreadPool.addWorkerThread(workerName)
             ThreadPool.startWorkerThread(workerName)
@@ -172,14 +148,14 @@ class PackageManager(object):
         if setFailFlag:
             self.logger.error("Some of the packages failed:")
             self.logger.error(Scheduler.listOfFailedPackages)
-            return False
+            raise Exception("Failed during building package")
         
         if not setFailFlag:
             if allPackagesBuilt:
                 self.logger.info("All packages built successfully")
             else:
                 self.logger.error("Build stopped unexpectedly.Unknown error.")
-                return False
+                raise Exception("Unknown error")
         
         self.logger.info("Terminated")
-        return True
+

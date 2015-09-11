@@ -13,6 +13,7 @@ import subprocess
 import sys
 import os
 from jsonwrapper import JsonWrapper
+from packageselector import PackageSelector
 
 def query_yes_no(question, default="no"):
     valid = {"yes": True, "y": True, "ye": True,
@@ -77,8 +78,42 @@ def create_vmdk_and_partition(config, vmdk_path):
         elif line.startswith("ROOT_PARTITION="):
             partitions_data['root'] = line.replace("ROOT_PARTITION=", "").strip()
             count += 1
-    
+
     return partitions_data, count == 2
+
+def create_rpm_list_to_copy_in_iso(build_install_option, output_data_path):
+    json_wrapper_option_list = JsonWrapper(build_install_option)
+    option_list_json = json_wrapper_option_list.read()
+    options_sorted = option_list_json.items()
+    packages = []
+    for install_option in options_sorted:
+        if install_option[0] != "iso":
+            file_path = os.path.join(output_data_path, install_option[1]["file"])
+            json_wrapper_package_list = JsonWrapper(file_path)
+            package_list_json = json_wrapper_package_list.read()
+            packages = packages + package_list_json["packages"]
+    return packages
+
+def create_additional_file_list_to_copy_in_iso(base_path, build_install_option):
+    json_wrapper_option_list = JsonWrapper(build_install_option)
+    option_list_json = json_wrapper_option_list.read()
+    options_sorted = option_list_json.items()
+    file_list = []
+    for install_option in options_sorted:
+        if install_option[1].has_key("additional-files"):
+            file_list = file_list + map(lambda filename: os.path.join(base_path, filename), install_option[1].get("additional-files")) 
+    return file_list
+
+def get_live_cd_status_string(build_install_option):
+    json_wrapper_option_list = JsonWrapper(build_install_option)
+    option_list_json = json_wrapper_option_list.read()
+    options_sorted = option_list_json.items()
+    file_list = []
+    for install_option in options_sorted:
+        if install_option[1].has_key("live-cd"):
+            if install_option[1].get("live-cd") == True:
+                return "true"
+    return "false"
 
 if __name__ == '__main__':
     usage = "Usage: %prog [options] <config file> <tools path>"
@@ -87,13 +122,14 @@ if __name__ == '__main__':
     parser.add_option("-i", "--iso-path",  dest="iso_path")
     parser.add_option("-v", "--vmdk-path", dest="vmdk_path")
     parser.add_option("-w",  "--working-directory",  dest="working_directory", default="/mnt/photon-root")
-    parser.add_option("-t",  "--tools-path",  dest="tools_path", default="../stage")
+    parser.add_option("-l",  "--log-path",  dest="log_path", default="../stage/LOGS")
     parser.add_option("-r",  "--rpm-path",  dest="rpm_path", default="../stage/RPMS")
+    parser.add_option("-o", "--output-data-path", dest="output_data_path", default="../stage/common/data/")
     parser.add_option("-f", "--force", action="store_true", dest="force", default=False)
-    parser.add_option("-p", "--package-list-file", dest="package_list_file", default="package_list.json")
-    
+    parser.add_option("-p", "--package-list-file", dest="package_list_file", default="../common/data/build_install_options_all.json")
+    parser.add_option("-m", "--stage-path", dest="stage_path", default="../stage")
+
     (options,  args) = parser.parse_args()
-    
     if options.iso_path:
         # Check the arguments
         if (len(args)) != 0:
@@ -112,6 +148,8 @@ if __name__ == '__main__':
         if not success:
             print "Unexpected failure, please check the logs"
             sys.exit(1)
+
+        config['initrd_dir'] = "/boot"
 
         config['iso_system'] = False
         config['vmdk_install'] = True
@@ -133,20 +171,23 @@ if __name__ == '__main__':
         else:
             config['password'] = crypt.crypt(config['password']['text'], "$6$" + "".join([random.choice(string.ascii_letters + string.digits) for _ in range(16)]))
 
-
     # Check the installation type
-    package_list = JsonWrapper(options.package_list_file).read()
-    if config['iso_system']:
-        packages = package_list["iso_packages"]
-    elif config['type'] == 'micro':
-        packages = package_list["micro_packages"]
-    elif config['type'] == 'minimal':
-        packages = package_list["minimal_packages"]
-    elif config['type'] == 'full':
-        packages = package_list["minimal_packages"] + package_list["optional_packages"]
+    json_wrapper_option_list = JsonWrapper(options.package_list_file)
+    option_list_json = json_wrapper_option_list.read()
+    options_sorted = option_list_json.items()
+    base_path = os.path.dirname(options.package_list_file)
+
+    packages = []
+    additional_files_to_copy_from_stage_to_iso = []
+    if config['iso_system'] == True:
+        for install_option in options_sorted:
+            if install_option[0] == "iso":
+                json_wrapper_package_list = JsonWrapper(os.path.join(base_path, install_option[1]["file"]))
+                package_list_json = json_wrapper_package_list.read()
+                packages = package_list_json["packages"]
     else:
-        #TODO: error
-        packages = []
+        packages = PackageSelector.get_packages_to_install(options_sorted, config['type'], options.output_data_path)
+
     config['packages'] = packages
 
     # Cleanup the working directory
@@ -168,12 +209,15 @@ if __name__ == '__main__':
     config['working_directory'] = options.working_directory
 
     # Run the installer
-    package_installer = Installer(config, tools_path = options.tools_path, rpm_path = options.rpm_path, log_path = options.tools_path + "/LOGS")
+    package_installer = Installer(config, rpm_path = options.rpm_path, log_path = options.log_path)
     package_installer.install(None)
 
     # Making the iso if needed
     if config['iso_system']:
-        process = subprocess.Popen(['./mk-install-iso.sh', '-w', options.working_directory, options.iso_path, options.tools_path, options.rpm_path, options.package_list_file])
+        rpm_list = " ".join(create_rpm_list_to_copy_in_iso(options.package_list_file, options.output_data_path))
+        files_to_copy = " ".join(create_additional_file_list_to_copy_in_iso(os.path.abspath(options.stage_path), options.package_list_file))
+        live_cd = get_live_cd_status_string(options.package_list_file)
+        process = subprocess.Popen(['./mk-install-iso.sh', '-w', options.working_directory, options.iso_path, options.rpm_path, options.package_list_file, rpm_list, options.stage_path, files_to_copy, live_cd, options.output_data_path])
         retval = process.wait()
 
     # Cleaning up for vmdk

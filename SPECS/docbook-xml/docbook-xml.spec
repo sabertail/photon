@@ -1,15 +1,18 @@
 Summary:	Docbook-xml-4.5
 Name:		docbook-xml
 Version:	4.5
-Release:	2%{?dist}
+Release:	3%{?dist}
 License:	MIT
 URL:		http://www.docbook.org
 Source0:	http://www.docbook.org/xml/4.5/%{name}-%{version}.zip
+%define sha1 docbook-xml=b9124233b50668fb508773aa2b3ebc631d7c1620
 Group:		Development/Tools
 Vendor:		VMware, Inc.
 Distribution: 	Photon
 Requires: 	libxml2
+Requires:   libxml2-python
 BuildRequires: 	libxml2
+BuildRequires:  libxml2-python
 BuildRequires: 	unzip
 %description
 The DocBook XML DTD-4.5 package contains document type definitions for 
@@ -131,6 +134,8 @@ rm /etc/xml/docbook
 /usr/share/xml/docbook/%{name}-%{version}
 /etc/xml
 %changelog
+*   Mon Jul 6 2015 Mahmoud Bassiouny <mbassiouny@vmware.com> 4.5.1-3
+-   Updated dependencies.
 *   Wed May 20 2015 Touseef Liaqat <tliaqat@vmware.com> 4.5.1-2
 -   Updated group.
 *	Mon Nov 24 2014 Divya Thaluru <dthaluru@vmware.com> 4.5-1
